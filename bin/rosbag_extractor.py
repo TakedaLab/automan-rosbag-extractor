@@ -92,7 +92,7 @@ class RosbagExtractor(object):
     @staticmethod
     def __process_image(msg, _type, file_path, camera_mat=None, dist_coeff=None):
         image = None
-        if "Compressed" in _type:
+        if 'CompressedImage' in type(msg).__name__:
             bridge = CvBridge()
             image = bridge.compressed_imgmsg_to_cv2(msg, "bgr8")
         else:
@@ -128,7 +128,8 @@ if __name__ == '__main__':
     storage_client.download()
     path = storage_client.get_input_path()
     output_dir = storage_client.get_output_dir()
-    os.makedirs(output_dir)
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
     res = RosbagExtractor.extract(
         json.loads(args.automan_info), path, [], output_dir, json.loads(args.raw_data_info))
     AutomanClient.send_result(json.loads(args.automan_info), res)
