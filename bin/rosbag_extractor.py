@@ -21,7 +21,7 @@ class UnknownCalibrationFormatError(Exception):
 class RosbagExtractor(object):
 
     @classmethod
-    def extract(cls, automan_info, file_path, topics, output_dir, raw_data_info, calibfile=None):
+    def extract(cls, automan_info, file_path, output_dir, raw_data_info, calibfile=None):
         extrinsics_mat, camera_mat, dist_coeff = None, None, None
         if calibfile:
             try:
@@ -29,31 +29,34 @@ class RosbagExtractor(object):
                 extrinsics_mat, camera_mat, dist_coeff = cls.__parse_calib(calib_path)
             except Exception:
                 raise UnknownCalibrationFormatError
-        candidates, topics = cls.__get_candidates(
+        available_candidates, available_topics = cls.__get_candidates(
             automan_info, int(raw_data_info['project_id']), int(raw_data_info['original_id']))
-        topic_msgs = {}
-        for topic in topics:
-            topic_msgs[topic] = ""
+
+        candidates = filter(lambda c: c['candidate_id'] in raw_data_info['candidates'], available_candidates)
+        topics_to_extract = [c['topic_name'] for c in candidates]
+        topic_msgs = {topic_name: None for topic_name in topics_to_extract}
 
         try:
             count = 0
             with Bag(file_path) as bag:
                 for topic, msg, t in bag.read_messages():
-                    if topic in topics:
+                    if topic in topics_to_extract:
                         topic_msgs[topic] = msg
-                    if all(msg != '' for msg in topic_msgs.values()):
+                    if all([m is not None for m in topic_msgs.values()]) and len(topic_msgs) > 0:
                         count += 1
                         for c in candidates:
                             save_msg = topic_msgs[c['topic_name']]
                             output_path = output_dir + str(c['candidate_id']) \
                                 + '_' + str(count).zfill(6)
-                            if(c['msg_type'] == 'sensor_msgs/PointCloud2'):
+                            if 'PointCloud2' in c['msg_type']:
                                 cls.__process_pcd(save_msg, output_path)
-                            else:
+                            elif 'Image' in c['msg_type']:
                                 cls.__process_image(
-                                    save_msg, msg._type, output_path, camera_mat, dist_coeff)
-                        for topic in topics:
-                            topic_msgs[topic] = ''
+                                    save_msg, type(save_msg).__name__, output_path, camera_mat, dist_coeff)
+                            else:
+                                raise NotImplementedError('Unsupported message type: {}'.format(c['msg_type']))
+                        topic_msgs = {topic_name: None for topic_name in topics_to_extract}
+
             result = {
                 'file_path': output_dir,
                 'frame_count': count,
@@ -91,7 +94,6 @@ class RosbagExtractor(object):
 
     @staticmethod
     def __process_image(msg, _type, file_path, camera_mat=None, dist_coeff=None):
-        image = None
         if "Compressed" in _type:
             bridge = CvBridge()
             image = bridge.compressed_imgmsg_to_cv2(msg, "bgr8")
@@ -130,5 +132,5 @@ if __name__ == '__main__':
     output_dir = storage_client.get_output_dir()
     os.makedirs(output_dir)
     res = RosbagExtractor.extract(
-        json.loads(args.automan_info), path, [], output_dir, json.loads(args.raw_data_info))
+        json.loads(args.automan_info), path, output_dir, json.loads(args.raw_data_info))
     AutomanClient.send_result(json.loads(args.automan_info), res)
