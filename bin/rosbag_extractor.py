@@ -54,7 +54,7 @@ class RosbagExtractor(object):
                                 cls.__process_image(
                                     save_msg, type(save_msg).__name__, output_path, camera_mat, dist_coeff)
                             else:
-                                raise NotImplementedError('Unsupported message type: {}'.format(c['msg_type']))
+                                raise KeyError('Unsupported message type: {}'.format(c['msg_type']))
                         topic_msgs = {topic_name: None for topic_name in topics_to_extract}
 
             result = {
