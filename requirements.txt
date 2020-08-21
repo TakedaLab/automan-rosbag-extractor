@@ -4,4 +4,4 @@ rospkg
 requests
 pypcd
 numpy==1.11.1
-opencv-python
+opencv-python==4.2.0.32
