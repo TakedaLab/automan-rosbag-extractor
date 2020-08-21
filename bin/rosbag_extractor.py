@@ -63,6 +63,7 @@ class RosbagExtractor(object):
                 'name': os.path.basename(path),  # FIXME
                 'original_id': int(raw_data_info['original_id']),
                 'candidates': raw_data_info['candidates'],
+                'calibrations': raw_data_info['calibrations'] if 'calibrations' in raw_data_info.keys() else {}
             }
             return result
         except Exception as e:
